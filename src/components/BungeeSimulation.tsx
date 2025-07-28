@@ -253,93 +253,126 @@ const BungeeSimulation = () => {
     
     console.log('Drawing canvas for position:', currentData.position, 'phase:', currentData.phase);
     
-    // Establecer tamaño del canvas
-    canvas.width = 600;
-    canvas.height = 500;
+    // Establecer tamaño del canvas responsivo
+    const container = canvas.parentElement;
+    const containerWidth = container ? container.clientWidth : 600;
+    const maxWidth = Math.min(containerWidth - 20, 600); // 10px de margen a cada lado
+    const aspectRatio = 7 / 6; // Proporción altura/ancho
+    
+    canvas.width = maxWidth;
+    canvas.height = maxWidth / aspectRatio;
     
     // Fondo azul claro
     ctx.fillStyle = '#f0f8ff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Escala y configuración
-    const scale = (canvas.height - 100) / params.H; // Escala: pixels por metro
+    // Escala y configuración responsiva
+    const margin = Math.min(canvas.height * 0.1, 50); // Margen adaptativo
+    const scale = (canvas.height - 2 * margin) / params.H; // Escala: pixels por metro
     const centerX = canvas.width / 2;
-    console.log('Scale:', scale, 'centerX:', centerX);
+    console.log('Canvas size:', canvas.width, 'x', canvas.height, 'Scale:', scale, 'centerX:', centerX);
     
-    // Dibujar plataforma
+    // Dibujar plataforma (adaptativa)
+    const platformWidth = Math.min(canvas.width * 0.3, 100);
+    const platformHeight = Math.max(canvas.height * 0.03, 10);
+    const platformY = margin;
+    
     ctx.fillStyle = '#8B4513';
-    ctx.fillRect(centerX - 50, 20, 100, 15);
+    ctx.fillRect(centerX - platformWidth/2, platformY, platformWidth, platformHeight);
     ctx.fillStyle = '#000';
-    ctx.font = '14px Arial';
+    
+    // Tamaño de fuente adaptativo
+    const fontSize = Math.max(canvas.width * 0.025, 10);
+    ctx.font = `${fontSize}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('Plataforma (0m)', centerX, 50);
+    ctx.fillText('Plataforma (0m)', centerX, platformY + platformHeight + fontSize + 5);
     
     // Calcular posición del saltador
-    const jumperY = 35 + currentData.position * scale;
+    const jumperY = margin + platformHeight + currentData.position * scale;
     console.log('Jumper Y position:', jumperY, '(position:', currentData.position, '* scale:', scale, ')');
     
-    // Dibujar cuerda
+    // Dibujar cuerda (adaptativa)
+    const ropeWidth = Math.max(canvas.width * 0.006, 2);
     ctx.strokeStyle = currentData.phase === 'free_fall' ? '#FF6B6B' : '#4ECDC4';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = ropeWidth;
     ctx.beginPath();
-    ctx.moveTo(centerX, 35);
+    ctx.moveTo(centerX, platformY + platformHeight);
     
     if (currentData.phase === 'free_fall') {
       // En caída libre, cuerda floja (línea punteada)
-      ctx.setLineDash([8, 8]);
+      const dashLength = Math.max(canvas.width * 0.02, 5);
+      ctx.setLineDash([dashLength, dashLength]);
       ctx.lineTo(centerX, jumperY);
     } else {
       // En fase elástica, cuerda siempre tensa
       ctx.setLineDash([]);
-      // La cuerda siempre está tensa desde la plataforma hasta el saltador
       ctx.lineTo(centerX, jumperY);
     }
     ctx.stroke();
     ctx.setLineDash([]);
     
-    // Dibujar saltador (más grande para ser más visible)
+    // Dibujar saltador (tamaño adaptativo)
+    const jumperRadius = Math.max(canvas.width * 0.02, 8);
     ctx.fillStyle = currentData.phase === 'free_fall' ? '#FF3333' : '#33CCCC';
     ctx.beginPath();
-    ctx.arc(centerX, jumperY, 12, 0, 2 * Math.PI);
+    ctx.arc(centerX, jumperY, jumperRadius, 0, 2 * Math.PI);
     ctx.fill();
     
     // Borde del saltador
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(ropeWidth * 0.5, 1);
     ctx.stroke();
     
-    // Marcadores de distancia
+    // Marcadores de distancia (adaptativos)
+    const markerFontSize = Math.max(canvas.width * 0.02, 8);
+    const markerWidth = Math.max(canvas.width * 0.04, 15);
+    const markerOffset = Math.max(canvas.width * 0.08, 30);
+    
     ctx.fillStyle = '#666';
-    ctx.font = '12px Arial';
+    ctx.font = `${markerFontSize}px Arial`;
     ctx.textAlign = 'left';
-    for (let i = 10; i <= params.H; i += 10) {
-      const y = 35 + i * scale;
-      ctx.fillRect(centerX + 40, y, 25, 1);
-      ctx.fillText(`${i}m`, centerX + 70, y + 4);
+    
+    const step = params.H > 100 ? 20 : 10; // Menos marcadores si la altura es muy grande
+    for (let i = step; i <= params.H; i += step) {
+      const y = margin + platformHeight + i * scale;
+      if (y < canvas.height - margin) { // Solo dibujar si está dentro del canvas
+        ctx.fillRect(centerX + markerOffset, y, markerWidth, 1);
+        ctx.fillText(`${i}m`, centerX + markerOffset + markerWidth + 5, y + markerFontSize/2);
+      }
     }
     
-    // Marcar L0 (más visible)
-    const L0Y = 35 + params.L0 * scale;
-    ctx.strokeStyle = '#FF8800';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([10, 5]);
-    ctx.beginPath();
-    ctx.moveTo(centerX - 50, L0Y);
-    ctx.lineTo(centerX + 50, L0Y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#FF8800';
-    ctx.font = '14px Arial';
-    ctx.fontWeight = 'bold';
-    ctx.fillText('L₀ = 35m', centerX + 55, L0Y - 5);
+    // Marcar L0 (adaptativo)
+    const L0Y = margin + platformHeight + params.L0 * scale;
+    if (L0Y < canvas.height - margin) {
+      const L0FontSize = Math.max(canvas.width * 0.025, 10);
+      const L0LineWidth = Math.max(canvas.width * 0.005, 2);
+      const L0Length = Math.min(canvas.width * 0.15, 50);
+      
+      ctx.strokeStyle = '#FF8800';
+      ctx.lineWidth = L0LineWidth;
+      ctx.setLineDash([canvas.width * 0.02, canvas.width * 0.01]);
+      ctx.beginPath();
+      ctx.moveTo(centerX - L0Length, L0Y);
+      ctx.lineTo(centerX + L0Length, L0Y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      ctx.fillStyle = '#FF8800';
+      ctx.font = `${L0FontSize}px Arial`;
+      ctx.fontWeight = 'bold';
+      ctx.fillText(`L₀ = ${params.L0}m`, centerX + L0Length + 5, L0Y - 5);
+    }
     
-    // Mostrar información de la fase actual
+    // Mostrar información de la fase actual (adaptativa)
+    const infoFontSize = Math.max(canvas.width * 0.025, 10);
+    const infoMargin = Math.max(canvas.width * 0.02, 8);
+    
     ctx.fillStyle = '#000';
-    ctx.font = '16px Arial';
+    ctx.font = `${infoFontSize}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(`Fase: ${currentData.phase === 'free_fall' ? 'Caída Libre' : 'Cuerda Elástica'}`, 10, 30);
-    ctx.fillText(`Tiempo: ${currentData.time.toFixed(2)}s`, 10, 50);
-    ctx.fillText(`Posición: ${currentData.position.toFixed(1)}m`, 10, 70);
+    ctx.fillText(`Fase: ${currentData.phase === 'free_fall' ? 'Caída Libre' : 'Cuerda Elástica'}`, infoMargin, infoMargin + infoFontSize);
+    ctx.fillText(`Tiempo: ${currentData.time.toFixed(2)}s`, infoMargin, infoMargin + infoFontSize * 2.5);
+    ctx.fillText(`Posición: ${currentData.position.toFixed(1)}m`, infoMargin, infoMargin + infoFontSize * 4);
   };
 
   // Iniciar/parar simulación
@@ -379,38 +412,51 @@ const BungeeSimulation = () => {
       animationRef.current.stop();
     }
     
-    // Reinicializar canvas
+    // Reinicializar canvas (responsivo)
     const canvas = canvasRef.current;
     if (canvas) {
-      canvas.width = 600;
-      canvas.height = 500;
+      const container = canvas.parentElement;
+      const containerWidth = container ? container.clientWidth : 600;
+      const maxWidth = Math.min(containerWidth - 20, 600);
+      const aspectRatio = 5 / 6;
+      
+      canvas.width = maxWidth;
+      canvas.height = maxWidth / aspectRatio;
+      
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.fillStyle = '#f0f8ff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Dibujar elementos estáticos iniciales
+        // Dibujar elementos estáticos iniciales (adaptativos)
+        const margin = Math.min(canvas.height * 0.1, 50);
         const centerX = canvas.width / 2;
+        const platformWidth = Math.min(canvas.width * 0.3, 100);
+        const platformHeight = Math.max(canvas.height * 0.03, 10);
+        const fontSize = Math.max(canvas.width * 0.025, 10);
+        
         ctx.fillStyle = '#8B4513';
-        ctx.fillRect(centerX - 50, 20, 100, 15);
+        ctx.fillRect(centerX - platformWidth/2, margin, platformWidth, platformHeight);
         ctx.fillStyle = '#000';
-        ctx.font = '12px Arial';
+        ctx.font = `${fontSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Plataforma (0m)', centerX, 50);
+        ctx.fillText('Plataforma (0m)', centerX, margin + platformHeight + fontSize + 5);
         
         // Marcar L0
-        const scale = (canvas.height - 100) / params.H;
-        const L0Y = 35 + params.L0 * scale;
+        const scale = (canvas.height - 2 * margin) / params.H;
+        const L0Y = margin + platformHeight + params.L0 * scale;
+        const L0Length = Math.min(canvas.width * 0.15, 50);
+        
         ctx.strokeStyle = '#FFA500';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = Math.max(canvas.width * 0.005, 2);
+        ctx.setLineDash([canvas.width * 0.02, canvas.width * 0.01]);
         ctx.beginPath();
-        ctx.moveTo(centerX - 40, L0Y);
-        ctx.lineTo(centerX + 40, L0Y);
+        ctx.moveTo(centerX - L0Length, L0Y);
+        ctx.lineTo(centerX + L0Length, L0Y);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = '#FFA500';
-        ctx.fillText('L₀ = 35m', centerX + 45, L0Y - 5);
+        ctx.fillText(`L₀ = ${params.L0}m`, centerX + L0Length + 5, L0Y - 5);
       }
     }
   };
@@ -476,40 +522,66 @@ const BungeeSimulation = () => {
 
   // Inicializar canvas
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.width = 600;
-      canvas.height = 500;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#f0f8ff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const initializeCanvas = () => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        // Configurar tamaño responsivo
+        const container = canvas.parentElement;
+        const containerWidth = container ? container.clientWidth : 600;
+        const maxWidth = Math.min(containerWidth - 20, 600);
+        const aspectRatio = 5 / 6;
         
-        // Dibujar elementos estáticos iniciales
-        const centerX = canvas.width / 2;
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(centerX - 50, 20, 100, 15);
-        ctx.fillStyle = '#000';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Plataforma (0m)', centerX, 50);
+        canvas.width = maxWidth;
+        canvas.height = maxWidth / aspectRatio;
         
-        // Marcar L0
-        const scale = (canvas.height - 100) / params.H;
-        const L0Y = 35 + params.L0 * scale;
-        ctx.strokeStyle = '#FFA500';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(centerX - 40, L0Y);
-        ctx.lineTo(centerX + 40, L0Y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#FFA500';
-        ctx.fillText('L₀ = 35m', centerX + 45, L0Y - 5);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#f0f8ff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Dibujar elementos estáticos iniciales (adaptativos)
+          const margin = Math.min(canvas.height * 0.1, 50);
+          const centerX = canvas.width / 2;
+          const platformWidth = Math.min(canvas.width * 0.3, 100);
+          const platformHeight = Math.max(canvas.height * 0.03, 10);
+          const fontSize = Math.max(canvas.width * 0.025, 10);
+          
+          ctx.fillStyle = '#8B4513';
+          ctx.fillRect(centerX - platformWidth/2, margin, platformWidth, platformHeight);
+          ctx.fillStyle = '#000';
+          ctx.font = `${fontSize}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.fillText('Plataforma (0m)', centerX, margin + platformHeight + fontSize + 5);
+          
+          // Marcar L0
+          const scale = (canvas.height - 2 * margin) / params.H;
+          const L0Y = margin + platformHeight + params.L0 * scale;
+          const L0Length = Math.min(canvas.width * 0.15, 50);
+          
+          ctx.strokeStyle = '#FFA500';
+          ctx.lineWidth = Math.max(canvas.width * 0.005, 2);
+          ctx.setLineDash([canvas.width * 0.02, canvas.width * 0.01]);
+          ctx.beginPath();
+          ctx.moveTo(centerX - L0Length, L0Y);
+          ctx.lineTo(centerX + L0Length, L0Y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#FFA500';
+          ctx.fillText(`L₀ = ${params.L0}m`, centerX + L0Length + 5, L0Y - 5);
+        }
       }
-    }
-  }, []);
+    };
+
+    initializeCanvas();
+    
+    // Reinicializar cuando la ventana cambie de tamaño
+    const handleResize = () => {
+      setTimeout(initializeCanvas, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [totalHeight, jumperMass, ropeLength, springConstant]);
 
   // Cleanup
   useEffect(() => {
@@ -917,8 +989,12 @@ const BungeeSimulation = () => {
         <CardContent>
           <canvas 
             ref={canvasRef}
-            className="border-2 border-gray-300 rounded-lg w-full max-w-2xl mx-auto block bg-blue-50"
-            style={{ width: '600px', height: '500px' }}
+            className="border-2 border-gray-300 rounded-lg w-full mx-auto block bg-blue-50"
+            style={{ 
+              maxWidth: '600px',
+              height: 'auto',
+              aspectRatio: '6/5'
+            }}
           />
           <div className="mt-2 text-sm text-gray-600 text-center">
             <div className="flex justify-center gap-4">
